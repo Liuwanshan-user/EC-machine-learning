@@ -6,7 +6,7 @@
 # 检查并安装所需的包
 packages_needed <- c(
   "ggplot2", "cowplot", "dplyr", "pROC", "glmnet",
-  "randomForest", "e1071", "nnet", "caret", "PRROC",
+  "randomForest", "e1071", "neuralnet", "caret", "PRROC",
   "scales", "readr", "gridExtra", "boot"
 )
 
@@ -23,7 +23,7 @@ library(pROC)
 library(glmnet)
 library(randomForest)
 library(e1071)
-library(nnet)
+library(neuralnet)
 library(caret)
 library(PRROC)
 library(scales)
@@ -98,14 +98,14 @@ cat("预处理完成: Log2转换 + Z-score标准化\n")
 
 # 定义配色方案
 model_colors <- c(
-  "#3AB5B3",  # 青色 - MLP
+  "#3AB5B3",  # 青色 - NN
   "#7B6C9F",  # 紫色 - LASSO
   "#A188BD",  # 浅紫 - Logistic
   "#BBC5DE",  # 浅蓝 - Random Forest
   "#E7777F"   # 粉色 - SVM
 )
 
-model_names <- c("MLP", "LASSO", "Logistic", "Random Forest", "SVM")
+model_names <- c("NN", "LASSO", "Logistic", "Random Forest", "SVM")
 
 # 5折交叉验证函数 - 返回概率和fold编号
 cv_predict <- function(X, y, model_type, n_folds = 5) {
@@ -125,17 +125,30 @@ cv_predict <- function(X, y, model_type, n_folds = 5) {
     fold_ids[test_idx] <- i
 
     # 训练模型
-    if (model_type == "MLP") {
-      df_train <- data.frame(y = as.factor(y_train_cv), X_train_cv)
-      model <- nnet(y ~ ., data = df_train, size = 50, maxit = 500, trace = FALSE, MaxNWts = 10000)
+    if (model_type == "NN") {
+      # 两层神经网络，每层50个神经元
+      df_train <- data.frame(y = y_train_cv, X_train_cv)
       df_test <- data.frame(X_test_cv)
-      pred_matrix <- predict(model, df_test, type = "raw")
 
-      if(is.matrix(pred_matrix)) {
-        cv_probs[test_idx] <- pred_matrix[, ncol(pred_matrix)]
-      } else {
-        cv_probs[test_idx] <- as.numeric(pred_matrix)
-      }
+      # 创建公式
+      feature_names <- colnames(X_train_cv)
+      formula_str <- paste("y ~", paste(feature_names, collapse = " + "))
+      formula_obj <- as.formula(formula_str)
+
+      # 训练两层神经网络
+      model <- neuralnet(formula_obj, data = df_train,
+                        hidden = c(50, 50),
+                        linear.output = FALSE,
+                        threshold = 0.01,
+                        stepmax = 1e6,
+                        rep = 1,
+                        err.fct = "ce",
+                        act.fct = "logistic",
+                        likelihood = TRUE)
+
+      # 预测
+      pred_result <- compute(model, df_test)
+      cv_probs[test_idx] <- pred_result$net.result[, 1]
 
     } else if (model_type == "LASSO") {
       model <- cv.glmnet(X_train_cv, y_train_cv, family = "binomial", alpha = 1)
@@ -166,17 +179,30 @@ cv_predict <- function(X, y, model_type, n_folds = 5) {
 
 # 测试集预测函数
 test_predict <- function(X_train, y_train, X_test, model_type) {
-  if (model_type == "MLP") {
-    df_train <- data.frame(y = as.factor(y_train), X_train)
-    model <- nnet(y ~ ., data = df_train, size = 50, maxit = 500, trace = FALSE, MaxNWts = 10000)
+  if (model_type == "NN") {
+    # 两层神经网络，每层50个神经元
+    df_train <- data.frame(y = y_train, X_train)
     df_test <- data.frame(X_test)
-    pred_matrix <- predict(model, df_test, type = "raw")
 
-    if(is.matrix(pred_matrix)) {
-      probs <- pred_matrix[, ncol(pred_matrix)]
-    } else {
-      probs <- as.numeric(pred_matrix)
-    }
+    # 创建公式
+    feature_names <- colnames(X_train)
+    formula_str <- paste("y ~", paste(feature_names, collapse = " + "))
+    formula_obj <- as.formula(formula_str)
+
+    # 训练两层神经网络
+    model <- neuralnet(formula_obj, data = df_train,
+                      hidden = c(50, 50),
+                      linear.output = FALSE,
+                      threshold = 0.01,
+                      stepmax = 1e6,
+                      rep = 1,
+                      err.fct = "ce",
+                      act.fct = "logistic",
+                      likelihood = TRUE)
+
+    # 预测
+    pred_result <- compute(model, df_test)
+    probs <- pred_result$net.result[, 1]
 
   } else if (model_type == "LASSO") {
     model <- cv.glmnet(X_train, y_train, family = "binomial", alpha = 1)
@@ -324,8 +350,8 @@ cat("\n导出特征选择前的概率...\n")
 before_cv_prob_df <- data.frame(
   id = train_data$id,
   label = train_data$label,
-  fold = before_cv_folds[["MLP"]],
-  MLP = before_cv_results[["MLP"]],
+  fold = before_cv_folds[["NN"]],
+  NN = before_cv_results[["NN"]],
   LASSO = before_cv_results[["LASSO"]],
   Logistic = before_cv_results[["Logistic"]],
   RandomForest = before_cv_results[["Random Forest"]],
@@ -338,7 +364,7 @@ write.csv(before_cv_prob_df, "before_fs_train_cv_probabilities.csv", row.names =
 before_test_prob_df <- data.frame(
   id = test_data$id,
   label = test_data$label,
-  MLP = before_test_results[["MLP"]],
+  NN = before_test_results[["NN"]],
   LASSO = before_test_results[["LASSO"]],
   Logistic = before_test_results[["Logistic"]],
   RandomForest = before_test_results[["Random Forest"]],
@@ -489,8 +515,8 @@ cat("\n导出特征选择后的概率...\n")
 after_cv_prob_df <- data.frame(
   id = train_data$id,
   label = train_data$label,
-  fold = after_cv_folds[["MLP"]],
-  MLP = after_cv_results[["MLP"]],
+  fold = after_cv_folds[["NN"]],
+  NN = after_cv_results[["NN"]],
   LASSO = after_cv_results[["LASSO"]],
   Logistic = after_cv_results[["Logistic"]],
   RandomForest = after_cv_results[["Random Forest"]],
@@ -503,7 +529,7 @@ write.csv(after_cv_prob_df, "after_fs_train_cv_probabilities.csv", row.names = F
 after_test_prob_df <- data.frame(
   id = test_data$id,
   label = test_data$label,
-  MLP = after_test_results[["MLP"]],
+  NN = after_test_results[["NN"]],
   LASSO = after_test_results[["LASSO"]],
   Logistic = after_test_results[["Logistic"]],
   RandomForest = after_test_results[["Random Forest"]],
