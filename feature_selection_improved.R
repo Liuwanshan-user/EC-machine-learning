@@ -165,9 +165,23 @@ cv_predict <- function(X, y, model_type, n_folds = 5) {
 
     } else if (model_type == "Logistic") {
       df_train <- data.frame(y = y_train_cv, X_train_cv)
-      model <- glm(y ~ ., data = df_train, family = binomial)
+      # 抑制警告并添加错误处理
+      model <- suppressWarnings(
+        tryCatch({
+          glm(y ~ ., data = df_train, family = binomial, maxit = 100)
+        }, error = function(e) {
+          # 如果失败，使用正则化版本
+          cv.glmnet(X_train_cv, y_train_cv, family = "binomial", alpha = 0.5)
+        })
+      )
       df_test <- data.frame(X_test_cv)
-      cv_probs[test_idx] <- predict(model, df_test, type = "response")
+
+      # 根据模型类型预测
+      if (inherits(model, "glm")) {
+        cv_probs[test_idx] <- predict(model, df_test, type = "response")
+      } else {
+        cv_probs[test_idx] <- predict(model, X_test_cv, s = "lambda.min", type = "response")[,1]
+      }
 
     } else if (model_type == "Random Forest") {
       model <- randomForest(X_train_cv, as.factor(y_train_cv), ntree = 500)
@@ -228,9 +242,23 @@ test_predict <- function(X_train, y_train, X_test, model_type) {
 
   } else if (model_type == "Logistic") {
     df_train <- data.frame(y = y_train, X_train)
-    model <- glm(y ~ ., data = df_train, family = binomial)
+    # 抑制警告并添加错误处理
+    model <- suppressWarnings(
+      tryCatch({
+        glm(y ~ ., data = df_train, family = binomial, maxit = 100)
+      }, error = function(e) {
+        # 如果失败，使用正则化版本
+        cv.glmnet(X_train, y_train, family = "binomial", alpha = 0.5)
+      })
+    )
     df_test <- data.frame(X_test)
-    probs <- predict(model, df_test, type = "response")
+
+    # 根据模型类型预测
+    if (inherits(model, "glm")) {
+      probs <- predict(model, df_test, type = "response")
+    } else {
+      probs <- predict(model, X_test, s = "lambda.min", type = "response")[,1]
+    }
 
   } else if (model_type == "Random Forest") {
     model <- randomForest(X_train, as.factor(y_train), ntree = 500)
@@ -638,6 +666,10 @@ create_roc_plot <- function(metrics_list) {
       Model = label_text,
       stringsAsFactors = FALSE
     )
+
+    # 关键修复：按x坐标排序以确保ROC曲线正确绘制
+    df <- df[order(df$x), ]
+
     all_data_list[[i]] <- df
   }
 
@@ -690,6 +722,10 @@ create_pr_plot <- function(metrics_list) {
       Model = label_text,
       stringsAsFactors = FALSE
     )
+
+    # 按x坐标（Recall）排序以确保曲线平滑
+    df <- df[order(df$x), ]
+
     all_data_list[[i]] <- df
   }
 
