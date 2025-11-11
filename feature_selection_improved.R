@@ -127,11 +127,17 @@ cv_predict <- function(X, y, model_type, n_folds = 5) {
     # 训练模型
     if (model_type == "NN") {
       # 两层神经网络，每层50个神经元
-      df_train <- data.frame(y = y_train_cv, X_train_cv)
-      df_test <- data.frame(X_test_cv)
+      # 清理列名以避免特殊字符问题
+      X_train_clean <- as.data.frame(X_train_cv)
+      X_test_clean <- as.data.frame(X_test_cv)
+      colnames(X_train_clean) <- make.names(colnames(X_train_cv))
+      colnames(X_test_clean) <- make.names(colnames(X_test_cv))
+
+      df_train <- data.frame(y = y_train_cv, X_train_clean)
+      df_test <- X_test_clean
 
       # 创建公式
-      feature_names <- colnames(X_train_cv)
+      feature_names <- colnames(X_train_clean)
       formula_str <- paste("y ~", paste(feature_names, collapse = " + "))
       formula_obj <- as.formula(formula_str)
 
@@ -181,11 +187,17 @@ cv_predict <- function(X, y, model_type, n_folds = 5) {
 test_predict <- function(X_train, y_train, X_test, model_type) {
   if (model_type == "NN") {
     # 两层神经网络，每层50个神经元
-    df_train <- data.frame(y = y_train, X_train)
-    df_test <- data.frame(X_test)
+    # 清理列名以避免特殊字符问题
+    X_train_clean <- as.data.frame(X_train)
+    X_test_clean <- as.data.frame(X_test)
+    colnames(X_train_clean) <- make.names(colnames(X_train))
+    colnames(X_test_clean) <- make.names(colnames(X_test))
+
+    df_train <- data.frame(y = y_train, X_train_clean)
+    df_test <- X_test_clean
 
     # 创建公式
-    feature_names <- colnames(X_train)
+    feature_names <- colnames(X_train_clean)
     formula_str <- paste("y ~", paste(feature_names, collapse = " + "))
     formula_obj <- as.formula(formula_str)
 
