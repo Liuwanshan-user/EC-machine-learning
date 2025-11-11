@@ -619,11 +619,10 @@ write.csv(after_metrics_df, "after_fs_performance_metrics.csv", row.names = FALS
 cat("\n==================== 绘制ROC和PR曲线 ====================\n")
 
 # 函数：创建ROC图
-create_roc_plot <- function(metrics_list, title_text) {
+create_roc_plot <- function(metrics_list) {
   plot_obj <- ggplot() +
     theme_cowplot() +
-    geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "gray50", linewidth = line_width) +
-    labs(x = "1 - Specificity", y = "Sensitivity", title = title_text) +
+    labs(x = "1 - Specificity", y = "Sensitivity") +
     theme(
       text = element_text(family = font_family, size = font_size, face = "bold"),
       axis.text = element_text(size = axis_text_size, color = "black", face = "bold"),
@@ -634,18 +633,15 @@ create_roc_plot <- function(metrics_list, title_text) {
       legend.position = c(0.65, 0.25),
       legend.text = element_text(size = 8),
       legend.title = element_blank(),
-      legend.key.size = unit(0.4, "cm"),
-      plot.title = element_text(hjust = 0.5, size = font_size)
+      legend.key.size = unit(0.4, "cm")
     )
 
   for (i in seq_along(model_names)) {
     model <- model_names[i]
     roc_data <- metrics_list[[model]]$roc_obj
     auc_val <- metrics_list[[model]]$AUC_ROC
-    ci_lower <- metrics_list[[model]]$AUC_ROC_CI_lower
-    ci_upper <- metrics_list[[model]]$AUC_ROC_CI_upper
 
-    label_text <- sprintf("%s %.3f (%.3f-%.3f)", model, auc_val, ci_lower, ci_upper)
+    label_text <- sprintf("%s %.2f", model, auc_val)
 
     plot_obj <- plot_obj +
       geom_line(
@@ -660,10 +656,10 @@ create_roc_plot <- function(metrics_list, title_text) {
 }
 
 # 函数：创建PR图
-create_pr_plot <- function(metrics_list, title_text) {
+create_pr_plot <- function(metrics_list) {
   plot_obj <- ggplot() +
     theme_cowplot() +
-    labs(x = "Recall", y = "Precision", title = title_text) +
+    labs(x = "Recall", y = "Precision") +
     theme(
       text = element_text(family = font_family, size = font_size, face = "bold"),
       axis.text = element_text(size = axis_text_size, color = "black", face = "bold"),
@@ -674,18 +670,15 @@ create_pr_plot <- function(metrics_list, title_text) {
       legend.position = c(0.35, 0.25),
       legend.text = element_text(size = 8),
       legend.title = element_blank(),
-      legend.key.size = unit(0.4, "cm"),
-      plot.title = element_text(hjust = 0.5, size = font_size)
+      legend.key.size = unit(0.4, "cm")
     )
 
   for (i in seq_along(model_names)) {
     model <- model_names[i]
     pr_data <- metrics_list[[model]]$pr_obj
     pr_auc <- metrics_list[[model]]$AUC_PR
-    ci_lower <- metrics_list[[model]]$AUC_PR_CI_lower
-    ci_upper <- metrics_list[[model]]$AUC_PR_CI_upper
 
-    label_text <- sprintf("%s %.3f (%.3f-%.3f)", model, pr_auc, ci_lower, ci_upper)
+    label_text <- sprintf("%s %.2f", model, pr_auc)
 
     plot_obj <- plot_obj +
       geom_line(
@@ -700,16 +693,16 @@ create_pr_plot <- function(metrics_list, title_text) {
 }
 
 # 特征选择前的图
-plot_before_train_roc <- create_roc_plot(before_metrics_list_cv, "Before FS: Train CV ROC")
-plot_before_test_roc <- create_roc_plot(before_metrics_list_test, "Before FS: Test ROC")
-plot_before_train_pr <- create_pr_plot(before_metrics_list_cv, "Before FS: Train CV PR")
-plot_before_test_pr <- create_pr_plot(before_metrics_list_test, "Before FS: Test PR")
+plot_before_train_roc <- create_roc_plot(before_metrics_list_cv)
+plot_before_test_roc <- create_roc_plot(before_metrics_list_test)
+plot_before_train_pr <- create_pr_plot(before_metrics_list_cv)
+plot_before_test_pr <- create_pr_plot(before_metrics_list_test)
 
 # 特征选择后的图
-plot_after_train_roc <- create_roc_plot(after_metrics_list_cv, "After FS: Train CV ROC")
-plot_after_test_roc <- create_roc_plot(after_metrics_list_test, "After FS: Test ROC")
-plot_after_train_pr <- create_pr_plot(after_metrics_list_cv, "After FS: Train CV PR")
-plot_after_test_pr <- create_pr_plot(after_metrics_list_test, "After FS: Test PR")
+plot_after_train_roc <- create_roc_plot(after_metrics_list_cv)
+plot_after_test_roc <- create_roc_plot(after_metrics_list_test)
+plot_after_train_pr <- create_pr_plot(after_metrics_list_cv)
+plot_after_test_pr <- create_pr_plot(after_metrics_list_test)
 
 # 保存特征选择前的图
 ggsave("before_fs_train_cv_roc.jpg", plot_before_train_roc, width = plot_width, height = plot_height, units = "cm", dpi = 300)
@@ -722,22 +715,6 @@ ggsave("after_fs_train_cv_roc.jpg", plot_after_train_roc, width = plot_width, he
 ggsave("after_fs_test_roc.jpg", plot_after_test_roc, width = plot_width, height = plot_height, units = "cm", dpi = 300)
 ggsave("after_fs_train_cv_pr.jpg", plot_after_train_pr, width = plot_width, height = plot_height, units = "cm", dpi = 300)
 ggsave("after_fs_test_pr.jpg", plot_after_test_pr, width = plot_width, height = plot_height, units = "cm", dpi = 300)
-
-# 保存特征选择前的组合图
-combined_before <- grid.arrange(
-  plot_before_train_roc, plot_before_test_roc,
-  plot_before_train_pr, plot_before_test_pr,
-  ncol = 2
-)
-ggsave("before_fs_combined_roc_pr.jpg", combined_before, width = 15, height = 14, units = "cm", dpi = 300)
-
-# 保存特征选择后的组合图
-combined_after <- grid.arrange(
-  plot_after_train_roc, plot_after_test_roc,
-  plot_after_train_pr, plot_after_test_pr,
-  ncol = 2
-)
-ggsave("after_fs_combined_roc_pr.jpg", combined_after, width = 15, height = 14, units = "cm", dpi = 300)
 
 # ===================================================================
 # 7. 完成
@@ -752,16 +729,14 @@ cat("4. before_fs_train_cv_roc.jpg - 训练集ROC曲线\n")
 cat("5. before_fs_test_roc.jpg - 测试集ROC曲线\n")
 cat("6. before_fs_train_cv_pr.jpg - 训练集PR曲线\n")
 cat("7. before_fs_test_pr.jpg - 测试集PR曲线\n")
-cat("8. before_fs_combined_roc_pr.jpg - 组合图\n")
 cat("\n特征选择:\n")
-cat("9. selected_features.csv - 选择的特征列表\n")
+cat("8. selected_features.csv - 选择的特征列表\n")
 cat("\n特征选择后生成的文件:\n")
-cat("10. after_fs_train_cv_probabilities.csv - 训练集5折CV概率(含fold列)\n")
-cat("11. after_fs_test_probabilities.csv - 测试集概率\n")
-cat("12. after_fs_performance_metrics.csv - 性能指标(95%CI)\n")
-cat("13. after_fs_train_cv_roc.jpg - 训练集ROC曲线\n")
-cat("14. after_fs_test_roc.jpg - 测试集ROC曲线\n")
-cat("15. after_fs_train_cv_pr.jpg - 训练集PR曲线\n")
-cat("16. after_fs_test_pr.jpg - 测试集PR曲线\n")
-cat("17. after_fs_combined_roc_pr.jpg - 组合图\n")
+cat("9. after_fs_train_cv_probabilities.csv - 训练集5折CV概率(含fold列)\n")
+cat("10. after_fs_test_probabilities.csv - 测试集概率\n")
+cat("11. after_fs_performance_metrics.csv - 性能指标(95%CI)\n")
+cat("12. after_fs_train_cv_roc.jpg - 训练集ROC曲线\n")
+cat("13. after_fs_test_roc.jpg - 测试集ROC曲线\n")
+cat("14. after_fs_train_cv_pr.jpg - 训练集PR曲线\n")
+cat("15. after_fs_test_pr.jpg - 测试集PR曲线\n")
 cat("==================================================\n")
