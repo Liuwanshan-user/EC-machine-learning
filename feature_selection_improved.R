@@ -620,7 +620,38 @@ cat("\n==================== 绘制ROC和PR曲线 ====================\n")
 
 # 函数：创建ROC图
 create_roc_plot <- function(metrics_list) {
-  plot_obj <- ggplot() +
+  # 收集所有模型的数据到一个数据框
+  all_data_list <- list()
+  label_order <- c()
+
+  for (i in seq_along(model_names)) {
+    model <- model_names[i]
+    roc_data <- metrics_list[[model]]$roc_obj
+    auc_val <- metrics_list[[model]]$AUC_ROC
+
+    label_text <- sprintf("%s %.2f", model, auc_val)
+    label_order <- c(label_order, label_text)
+
+    df <- data.frame(
+      x = 1 - roc_data$specificities,
+      y = roc_data$sensitivities,
+      Model = label_text,
+      stringsAsFactors = FALSE
+    )
+    all_data_list[[i]] <- df
+  }
+
+  # 合并所有数据
+  combined_data <- do.call(rbind, all_data_list)
+  combined_data$Model <- factor(combined_data$Model, levels = label_order)
+
+  # 创建命名的颜色向量
+  color_mapping <- setNames(model_colors[1:5], label_order)
+
+  # 绘图
+  plot_obj <- ggplot(combined_data, aes(x = x, y = y, color = Model)) +
+    geom_line(linewidth = line_width) +
+    scale_color_manual(values = color_mapping) +
     theme_cowplot() +
     labs(x = "1 - Specificity", y = "Sensitivity") +
     theme(
@@ -636,28 +667,43 @@ create_roc_plot <- function(metrics_list) {
       legend.key.size = unit(0.4, "cm")
     )
 
-  for (i in seq_along(model_names)) {
-    model <- model_names[i]
-    roc_data <- metrics_list[[model]]$roc_obj
-    auc_val <- metrics_list[[model]]$AUC_ROC
-
-    label_text <- sprintf("%s %.2f", model, auc_val)
-
-    plot_obj <- plot_obj +
-      geom_line(
-        data = data.frame(x = 1 - roc_data$specificities, y = roc_data$sensitivities),
-        aes(x = x, y = y, color = label_text),
-        linewidth = line_width
-      )
-  }
-
-  plot_obj <- plot_obj + scale_color_manual(values = model_colors[1:5])
   return(plot_obj)
 }
 
 # 函数：创建PR图
 create_pr_plot <- function(metrics_list) {
-  plot_obj <- ggplot() +
+  # 收集所有模型的数据到一个数据框
+  all_data_list <- list()
+  label_order <- c()
+
+  for (i in seq_along(model_names)) {
+    model <- model_names[i]
+    pr_data <- metrics_list[[model]]$pr_obj
+    pr_auc <- metrics_list[[model]]$AUC_PR
+
+    label_text <- sprintf("%s %.2f", model, pr_auc)
+    label_order <- c(label_order, label_text)
+
+    df <- data.frame(
+      x = pr_data$curve[, 1],
+      y = pr_data$curve[, 2],
+      Model = label_text,
+      stringsAsFactors = FALSE
+    )
+    all_data_list[[i]] <- df
+  }
+
+  # 合并所有数据
+  combined_data <- do.call(rbind, all_data_list)
+  combined_data$Model <- factor(combined_data$Model, levels = label_order)
+
+  # 创建命名的颜色向量
+  color_mapping <- setNames(model_colors[1:5], label_order)
+
+  # 绘图
+  plot_obj <- ggplot(combined_data, aes(x = x, y = y, color = Model)) +
+    geom_line(linewidth = line_width) +
+    scale_color_manual(values = color_mapping) +
     theme_cowplot() +
     labs(x = "Recall", y = "Precision") +
     theme(
@@ -673,22 +719,6 @@ create_pr_plot <- function(metrics_list) {
       legend.key.size = unit(0.4, "cm")
     )
 
-  for (i in seq_along(model_names)) {
-    model <- model_names[i]
-    pr_data <- metrics_list[[model]]$pr_obj
-    pr_auc <- metrics_list[[model]]$AUC_PR
-
-    label_text <- sprintf("%s %.2f", model, pr_auc)
-
-    plot_obj <- plot_obj +
-      geom_line(
-        data = data.frame(x = pr_data$curve[, 1], y = pr_data$curve[, 2]),
-        aes(x = x, y = y, color = label_text),
-        linewidth = line_width
-      )
-  }
-
-  plot_obj <- plot_obj + scale_color_manual(values = model_colors[1:5])
   return(plot_obj)
 }
 
