@@ -127,7 +127,7 @@ cv_predict <- function(X, y, model_type, n_folds = 5) {
     # 训练模型
     if (model_type == "MLP") {
       df_train <- data.frame(y = as.factor(y_train_cv), X_train_cv)
-      model <- nnet(y ~ ., data = df_train, size = 10, maxit = 500, trace = FALSE)
+      model <- nnet(y ~ ., data = df_train, size = 50, maxit = 500, trace = FALSE, MaxNWts = 10000)
       df_test <- data.frame(X_test_cv)
       pred_matrix <- predict(model, df_test, type = "raw")
 
@@ -168,7 +168,7 @@ cv_predict <- function(X, y, model_type, n_folds = 5) {
 test_predict <- function(X_train, y_train, X_test, model_type) {
   if (model_type == "MLP") {
     df_train <- data.frame(y = as.factor(y_train), X_train)
-    model <- nnet(y ~ ., data = df_train, size = 10, maxit = 500, trace = FALSE)
+    model <- nnet(y ~ ., data = df_train, size = 50, maxit = 500, trace = FALSE, MaxNWts = 10000)
     df_test <- data.frame(X_test)
     pred_matrix <- predict(model, df_test, type = "raw")
 
